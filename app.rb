@@ -2,11 +2,11 @@ require 'sinatra/base'
 
 module ChatDemo
   class App < Sinatra::Base
-    get "/" do
+    get "/chat" do
       erb :"index.html"
     end
 
-    get "/plain" do
+    get "/" do
       erb :"plain.html"
     end
 
