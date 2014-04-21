@@ -45,7 +45,7 @@ module ChatDemo
         end
 
         ws.on :message do |event|
-          p [:message, event.data]
+          puts event.data
           @redis.publish(CHANNEL, event.data)
         end
 
