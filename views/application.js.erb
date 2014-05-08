@@ -1,5 +1,17 @@
+var locationSearch = function(name,_default){
+  var m = location.search.match("[\?&]"+name+"=([^&#]*)");
+  if(m){
+    return m[1];
+  }else{
+    if(typeof _default !== 'undefined'){
+      return _default;
+    }else{
+      return null;
+    }
+  }
+}
 var scheme   = "<%= @scheme %>";
-var uri      = scheme + window.document.location.host + "/";
+var uri      = scheme + window.document.location.host + "/?room=" + locationSearch("room","");
 var ws       = new WebSocket(uri);
 var escapeHtml = function(html){
   return $('<div>').text(html).html();

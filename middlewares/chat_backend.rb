@@ -7,11 +7,11 @@ require 'erb'
 module ChatDemo
   class ChatBackend
     KEEPALIVE_TIME = 15 # in seconds
-    CHANNEL        = "chat-demo"
+    CHANNEL = "ALL"
 
     def initialize(app)
       @app     = app
-      @clients = []
+      @clients = {}
       if ENV["REDISCLOUD_URL"]
         uri = URI.parse(ENV["REDISCLOUD_URL"])
         @redis = Redis.new(host: uri.host, port: uri.port, password: uri.password)
@@ -19,7 +19,8 @@ module ChatDemo
           redis_sub = Redis.new(host: uri.host, port: uri.port, password: uri.password)
           redis_sub.subscribe(CHANNEL) do |on|
             on.message do |channel, msg|
-              @clients.each {|ws| ws.send(msg) }
+              msg = JSON.parse(msg)
+              @clients[msg['room']].each {|ws| ws.send(msg['data']) }
             end
           end
         end
@@ -28,7 +29,8 @@ module ChatDemo
           attr_accessor :clients
           def publish(channel, msg)
             if channel == CHANNEL
-              @clients.each {|ws| ws.send(msg) }
+              msg = JSON.parse(msg)
+              @clients[msg['room']].each {|ws| ws.send(msg['data']) }
             end
           end
         end.new
@@ -38,26 +40,31 @@ module ChatDemo
 
     def call(env)
       if Faye::WebSocket.websocket?(env)
-        ws = Faye::WebSocket.new(env, nil, {ping: KEEPALIVE_TIME })
+        room = env['REQUEST_URI'][/[\?&]room=([^&#]*)/, 1]
+
+        ws = Faye::WebSocket.new(env, nil, {ping: KEEPALIVE_TIME})
         ws.on :open do |event|
-          p [:open, ws.object_id]
-          @clients << ws
+          p [:open, room, ws.object_id]
+          @clients[room] ||= []
+          @clients[room] << ws
         end
 
         ws.on :message do |event|
-          puts event.data
-          @redis.publish(CHANNEL, event.data)
+          s = ""
+          s += "#{room}: " if room!=""
+          s += event.data
+          puts s
+          @redis.publish(CHANNEL, {'room'=>room, 'data'=>event.data}.to_json)
         end
 
         ws.on :close do |event|
-          p [:close, ws.object_id, event.code, event.reason]
-          @clients.delete(ws)
+          p [:close, room, ws.object_id, event.code, event.reason]
+          @clients[room].delete(ws)
           ws = nil
         end
 
         # Return async Rack response
         ws.rack_response
-
       else
         @app.call(env)
       end
