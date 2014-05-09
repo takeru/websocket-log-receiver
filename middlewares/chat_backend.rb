@@ -51,7 +51,7 @@ module ChatDemo
 
         ws.on :message do |event|
           s = ""
-          s += "#{room}: " if room!=""
+          s += "#{room}: " if room!=nil && room!=""
           s += event.data
           puts s
           @redis.publish(CHANNEL, {'room'=>room, 'data'=>event.data}.to_json)
